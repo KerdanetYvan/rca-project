@@ -97,6 +97,7 @@ def list_tasks():
 def create_task():
     data = request.get_json()
     if not data or not data.get("title"):
+        app.logger.warning("Attempt to create task without title")
         return jsonify({"error": "Title is required"}), 400
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -121,6 +122,7 @@ def update_task(task_id):
     cur.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
     task = cur.fetchone()
     if not task:
+        app.logger.warning(f"Attempt to update non-existent task: {task_id}")
         return jsonify({"error": "Not found"}), 404
     title = data.get("title", task["title"])
     description = data.get("description", task["description"])
@@ -142,7 +144,10 @@ def update_task(task_id):
 def delete_task(task_id):
     db = get_db()
     cur = db.cursor()
-    cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
+    cur.execute("DELETE FROM tasks WHERE id = %s RETURNING id", (task_id,))
+    if cur.rowcount == 0:
+        app.logger.warning(f"Attempt to delete non-existent task: {task_id}")
+        return jsonify({"error": "Not found"}), 404
     r = get_redis()
     r.delete("stats")
     return "", 204
@@ -189,6 +194,23 @@ def get_stats():
 #         print(f"Cache warmup failed (non-critical): {e}")
 
 # warmup_cache()
+
+@app.errorhandler(500)
+def handle_500(e):
+    app.logger.error(f"Internal server error: {e}")
+    return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(404)
+def handle_404(e):
+    app.logger.warning(f"Not found: {request.path}")
+    return jsonify({"error": "Not found"}), 404
+
+@app.errorhandler(400)
+def handle_400(e):
+    app.logger.warning(f"Bad request: {request.path} - {e}")
+    return jsonify({"error": "Bad request"}), 400
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
