@@ -49,6 +49,11 @@ services:
 
   frontend:
     build: ./frontend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "3000:8080"
     depends_on:
