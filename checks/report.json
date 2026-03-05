@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-05T14:14:12.554910+00:00",
+  "generated_at": "2026-03-05T14:24:47.756216+00:00",
   "checks": {
     "backend_builds": true,
     "frontend_builds": true,
@@ -7,11 +7,11 @@
     "redis_connected": true,
     "db_schema_valid": true,
     "backend_imports": true,
-    "db_connection": false,
+    "db_connection": true,
     "api_query_works": true,
-    "frontend_api_call": false,
+    "frontend_api_call": true,
     "cors_works": true,
-    "frontend_deps": false,
+    "frontend_deps": true,
     "cache_consistent": true,
     "no_duplicates": true,
     "no_memory_leak": true,
