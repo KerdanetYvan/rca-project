@@ -2,15 +2,27 @@ import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, g
+from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import redis
 
 
 app = Flask(__name__)
+# 1. On récupère la variable d'environnement (avec "*" par défaut si elle n'existe pas)
+raw_origins = os.environ.get("FRONTEND_URL", "*")
+
+# 2. On transforme la chaîne en liste (utile si vous mettez "url1,url2")
+# et on nettoie les espaces éventuels
+allowed_origins = [origin.strip() for origin in raw_origins.split(",")]
+
+# 3. On applique les règles CORS de manière sécurisée
+# Ici, on n'applique le CORS que sur les routes commençant par /api/
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://taskuser:taskpass@database:5432/taskdb")
 REDIS_URL = os.environ["REDIS_URL"]
+# URL_FRONT = os.environ["URL_FRONT"]
 
 search_history = []
 
@@ -167,16 +179,16 @@ def get_stats():
     r.setex("stats", 1, json.dumps(dict(stats)))
     return jsonify(dict(stats))
 
-def warmup_cache():
-    try:
-        r = redis.from_url(REDIS_URL)
-        r.ping()
-        import urllib.request
-        urllib.request.urlopen("http://localhost:8000/api/stats")
-    except Exception as e:
-        print(f"Cache warmup failed (non-critical): {e}")
+# def warmup_cache():
+#     try:
+#         r = redis.from_url(REDIS_URL)
+#         r.ping()
+#         import urllib.request
+#         urllib.request.urlopen("http://localhost:8000/api/stats")
+#     except Exception as e:
+#         print(f"Cache warmup failed (non-critical): {e}")
 
-warmup_cache()
+# warmup_cache()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)

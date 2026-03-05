@@ -6,7 +6,7 @@ import SearchBar from './components/SearchBar';
 import Stats from './components/Stats';
 import './App.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:8000/api';
 
 function App() {
   const [tasks, setTasks] = useState([]);
@@ -21,11 +21,14 @@ function App() {
       if (filter === 'today') params.today = new Date().toISOString().split('T')[0];
       const res = await axios.get(`${API_URL}/tasks`, { params });
       setTasks(res.data);
+      console.log(tasks)
     } catch (err) { console.error('Failed to fetch tasks:', err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchTasks(); }, [filter]);
+  useEffect(() => { 
+    fetchTasks(); 
+  }, [filter]);
 
   const addTask = async (task) => {
     try { await axios.post(`${API_URL}/tasks`, task); fetchTasks(); }
