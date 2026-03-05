@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
@@ -102,14 +103,23 @@ def list_tasks():
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     status = request.args.get("status")
     today_only = request.args.get("today")
+    tz_param = request.args.get("tz", "UTC")  # Récupère la timezone demandée
+    
     query = "SELECT * FROM tasks"
     conditions = []
     params = []
     if status:
         conditions.append("active = true" if status == "active" else "active = false")
     if today_only:
-        conditions.append("DATE(created_at) = DATE(%s)")
-        params.append(datetime.now())
+        # Calcule "aujourd'hui" dans la timezone demandée
+        try:
+            user_tz = ZoneInfo(tz_param)
+            now_in_tz = datetime.now(user_tz)
+            conditions.append("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) = %s")
+            params.extend([tz_param, now_in_tz.date()])
+        except Exception:
+            # Fallback si timezone invalide
+            conditions.append("DATE(created_at) = CURRENT_DATE")
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
     query += " ORDER BY created_at DESC"
