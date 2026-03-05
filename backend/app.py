@@ -2,14 +2,26 @@ import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, g
+from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import redis
 
 app = Flask(__name__)
+# 1. On récupère la variable d'environnement (avec "*" par défaut si elle n'existe pas)
+raw_origins = os.environ.get("FRONTEND_URL", "*")
+
+# 2. On transforme la chaîne en liste (utile si vous mettez "url1,url2")
+# et on nettoie les espaces éventuels
+allowed_origins = [origin.strip() for origin in raw_origins.split(",")]
+
+# 3. On applique les règles CORS de manière sécurisée
+# Ici, on n'applique le CORS que sur les routes commençant par /api/
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://taskuser:taskpass@database:5432/taskdb")
 REDIS_URL = os.environ["REDIS_URL"]
+# URL_FRONT = os.environ["URL_FRONT"]
 
 search_history = []
 

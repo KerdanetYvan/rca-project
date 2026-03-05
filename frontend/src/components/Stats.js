@@ -4,7 +4,7 @@ function Stats({ apiUrl }) {
   const [stats, setStats] = useState(null);
   useEffect(() => {
     const fetchStats = async () => { try { const res = await axios.get(`${apiUrl}/stats`); setStats(res.data); } catch(e){} };
-    fetchStats(); const i = setInterval(fetchStats, 5000); return () => clearInterval(i);
+    fetchStats(); const i = setInterval(fetchStats, 8000); return () => clearInterval(i);
   }, [apiUrl]);
   if (!stats) return null;
   return (
