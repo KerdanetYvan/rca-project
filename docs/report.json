@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-03-05T15:25:22.331552+00:00",
+  "generated_at": "2026-03-05T15:34:09.874216+00:00",
   "checks": {
     "backend_builds": true,
     "frontend_builds": true,
-    "frontend_port": true,
-    "redis_connected": true,
+    "frontend_port": false,
+    "redis_connected": false,
     "db_schema_valid": true,
     "backend_imports": true,
-    "db_connection": true,
-    "api_query_works": true,
-    "frontend_api_call": true,
-    "cors_works": true,
+    "db_connection": false,
+    "api_query_works": false,
+    "frontend_api_call": false,
+    "cors_works": false,
     "frontend_deps": false,
-    "cache_consistent": true,
-    "no_duplicates": true,
+    "cache_consistent": false,
+    "no_duplicates": false,
     "no_memory_leak": true,
-    "db_ready_check": true,
-    "errors_logged": true,
-    "timezone_filter": true,
-    "no_circular_dep": true
+    "db_ready_check": false,
+    "errors_logged": false,
+    "timezone_filter": false,
+    "no_circular_dep": false
   }
 }
