@@ -187,6 +187,9 @@ def search_tasks():
     cur.execute("SELECT * FROM tasks WHERE title ILIKE %s OR description ILIKE %s", (f"%{q}%", f"%{q}%"))
     results = cur.fetchall()
     search_history.append({"query": q, "results_count": len(results), "timestamp": datetime.now().isoformat()})
+    # on ne garde que les 100 dernières recherches en mémoire 
+    if len(search_history) > 100:
+        search_history.pop(0)
     serialized = []
     for t in results:
         serialized.append({
