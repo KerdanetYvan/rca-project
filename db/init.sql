@@ -7,6 +7,9 @@ CREATE TABLE tasks (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Contrainte UNIQUE pour empêcher les doublons de titre
+ALTER TABLE tasks ADD CONSTRAINT unique_task_title UNIQUE (title);
+
 INSERT INTO tasks (title, description, is_active) VALUES
     ('Setup CI/CD pipeline', 'Configure GitHub Actions for automated testing', true),
     ('Write API documentation', 'Document all endpoints with examples', true),

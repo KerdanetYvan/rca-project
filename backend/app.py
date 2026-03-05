@@ -141,20 +141,44 @@ def create_task():
     if not data or not data.get("title"):
         app.logger.warning("Attempt to create task without title")
         return jsonify({"error": "Title is required"}), 400
-    db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "INSERT INTO tasks (title, description, is_active, created_at, updated_at) VALUES (%s, %s, %s, %s, %s) RETURNING *",
-        (data["title"], data.get("description", ""), True, datetime.now(timezone.utc), datetime.now(timezone.utc))
-    )
-    task = cur.fetchone()
+    
+    title = data["title"]
     r = get_redis()
-    r.delete("stats")
-    return jsonify({
-        "id": task["id"], "title": task["title"], "description": task["description"],
-        "is_active": task["is_active"], "created_at": task["created_at"].isoformat(),
-        "updated_at": task["updated_at"].isoformat(),
-    }), 201
+    lock_key = f"task_lock:{title}"
+    
+    # 🔒 Première barrière : Redis Lock (empêche les requêtes simultanées)
+    if not r.setnx(lock_key, "locked"):
+        # Une autre requête est en train de créer cette tâche
+        app.logger.warning(f"Duplicate task creation attempt blocked by Redis lock: {title}")
+        return jsonify({"error": "A task with this title is already being created"}), 409
+    
+    try:
+        r.expire(lock_key, 5)  # Lock expire après 5 secondes (évite deadlock)
+        
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        try:
+            # 🛡️ Deuxième barrière : DB UNIQUE constraint (garantie finale)
+            cur.execute(
+                "INSERT INTO tasks (title, description, is_active, created_at, updated_at) VALUES (%s, %s, %s, %s, %s) RETURNING *",
+                (title, data.get("description", ""), True, datetime.now(timezone.utc), datetime.now(timezone.utc))
+            )
+            task = cur.fetchone()
+        except psycopg2.IntegrityError:
+            # La contrainte UNIQUE a bloqué le doublon
+            app.logger.warning(f"Duplicate task blocked by DB constraint: {title}")
+            return jsonify({"error": "A task with this title already exists"}), 409
+        
+        r.delete("stats")
+        return jsonify({
+            "id": task["id"], "title": task["title"], "description": task["description"],
+            "is_active": task["is_active"], "created_at": task["created_at"].isoformat(),
+            "updated_at": task["updated_at"].isoformat(),
+        }), 201
+    finally:
+        # Libère le verrou Redis
+        r.delete(lock_key)
 
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
