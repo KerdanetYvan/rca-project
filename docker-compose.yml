@@ -57,6 +57,22 @@ services:
     volumes:
       - ./frontend:/app
 
+  lint-backend:
+    build: ./backend
+    command: flake8 .
+    volumes:
+      - ./backend:/app
+    profiles:
+      - lint
+
+  lint-frontend:
+    build: ./frontend
+    command: npm run lint
+    volumes:
+      - ./frontend:/app
+    profiles:
+      - lint
+
 volumes:
   postgres_data:
 

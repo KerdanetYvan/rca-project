@@ -11,7 +11,12 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test"
+    "test": "react-scripts test",
+    "lint:backend": "cd backend && flake8 .",
+    "format:backend": "cd backend && black .",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:fix": "eslint src/ --fix",
+    "lint": "npm run lint:backend && eslint src/"
   },
   "browserslist": {
     "production": [
@@ -31,5 +36,7 @@
     "babel-jest": "^30.2.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.5.1"
+    "eslint": "^8.57.1",
+    "eslint-config-react-app": "^7.0.1"
   }
 }
