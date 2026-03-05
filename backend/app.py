@@ -65,10 +65,8 @@ def health():
     health_status = {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "services": {
-            "database": "ok",
-            "redis": "ok"
-        }
+        "database": "ok",
+        "redis": "ok"
     }
     http_code = 200
 
@@ -80,7 +78,7 @@ def health():
         cur.fetchone()
     except Exception as e:
         app.logger.error(f"Erreur Healthcheck Database : {e}")
-        health_status["services"]["database"] = "down"
+        health_status["database"] = "down"
         health_status["status"] = "error"
         http_code = 503  # 503 Service Unavailable
 
@@ -90,7 +88,7 @@ def health():
         r.ping()
     except Exception as e:
         app.logger.error(f"Erreur Healthcheck Redis : {e}")
-        health_status["services"]["redis"] = "down"
+        health_status["redis"] = "down"
         health_status["status"] = "error"
         http_code = 503
 
