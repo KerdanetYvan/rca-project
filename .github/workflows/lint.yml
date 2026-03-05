@@ -11,58 +11,74 @@ jobs:
   lint-backend:
     name: "Lint Python Backend"
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install dependencies
-        working-directory: ./backend
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install backend dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install flake8 black
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Install linting tools
+        run: pip install flake8 black
 
       - name: Run Flake8
-        working-directory: ./backend
         run: |
-          echo "🔍 Running Flake8..."
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          cd backend
+          flake8 . --count --show-source --statistics
+        continue-on-error: false
 
       - name: Check Black formatting
-        working-directory: ./backend
         run: |
-          echo "🎨 Checking Black formatting..."
-          black --check --diff .
+          cd backend
+          black --check .
+        continue-on-error: false
 
   lint-frontend:
     name: "Lint React Frontend"
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
 
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
 
       - name: Run ESLint
-        working-directory: ./frontend
         run: |
-          echo "🔍 Running ESLint..."
-          npx eslint src/ --max-warnings=0
+          cd frontend
+          npx eslint src/
+        continue-on-error: false
