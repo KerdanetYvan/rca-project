@@ -13,16 +13,13 @@ app = Flask(__name__)
 raw_origins = os.environ.get("FRONTEND_URL", "*")
 
 # 2. On transforme la chaîne en liste (utile si vous mettez "url1,url2")
-# et on nettoie les espaces éventuels
 allowed_origins = [origin.strip() for origin in raw_origins.split(",")]
 
-# 3. On applique les règles CORS de manière sécurisée
-# Ici, on n'applique le CORS que sur les routes commençant par /api/
+# 3. On applique les règles CORS de manière sécurisé
 CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://taskuser:taskpass@database:5432/taskdb")
 REDIS_URL = os.environ["REDIS_URL"]
-# URL_FRONT = os.environ["URL_FRONT"]
 
 search_history = []
 
@@ -62,7 +59,42 @@ def after_request(response):
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
+    # on vérifie si la connexion avec la db et redis est bonne 
+    # État par défaut
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {
+            "database": "ok",
+            "redis": "ok"
+        }
+    }
+    http_code = 200
+
+    # 1. Vérification de la Base de données (PostgreSQL)
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+    except Exception as e:
+        app.logger.error(f"Erreur Healthcheck Database : {e}")
+        health_status["services"]["database"] = "down"
+        health_status["status"] = "error"
+        http_code = 503  # 503 Service Unavailable
+
+    # 2. Vérification du Cache (Redis)
+    try:
+        r = get_redis()
+        r.ping()
+    except Exception as e:
+        app.logger.error(f"Erreur Healthcheck Redis : {e}")
+        health_status["services"]["redis"] = "down"
+        health_status["status"] = "error"
+        http_code = 503
+
+    return jsonify(health_status), http_code
+    # return jsonify({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
 
 @app.route("/api/tasks", methods=["GET"])
 def list_tasks():
