@@ -8,3 +8,4 @@ dist/
 .DS_Store
 venv/
 BUGS.md
+.venv/
