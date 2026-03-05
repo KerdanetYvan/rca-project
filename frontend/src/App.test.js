@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import axios from 'axios';
 import App from './App';
 
 // Mock axios avant d'importer App
@@ -9,8 +10,6 @@ jest.mock('axios', () => ({
   put: jest.fn(),
   delete: jest.fn(),
 }));
-
-import axios from 'axios';
 
 describe('Logique de filtrage du composant App', () => {
   
@@ -27,7 +26,6 @@ describe('Logique de filtrage du composant App', () => {
     // On attend que le premier fetch initial du useEffect soit passé
     // React 18 en strict mode appelle les effets 2 fois au démarrage
     await waitFor(() => expect(axios.get).toHaveBeenCalled());
-    const callsBefore = axios.get.mock.calls.length;
 
     // Act : On trouve le bouton "Active" et on clique dessus
     const activeBtn = screen.getByText('Active');

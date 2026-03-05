@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import TaskList from './components/TaskList';
 import TaskForm from './components/TaskForm';
@@ -13,7 +13,7 @@ function App() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
@@ -26,31 +26,55 @@ function App() {
 
       const res = await axios.get(`${API_URL}/tasks`, { params });
       setTasks(res.data);
-      console.log(tasks)
-    } catch (err) { console.error('Failed to fetch tasks:', err); }
-    finally { setLoading(false); }
-  };
+    } catch (err) {
+      // Error handled silently
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
   useEffect(() => { 
     fetchTasks(); 
-  }, [filter]);
+  }, [fetchTasks]);
 
   const addTask = async (task) => {
-    try { await axios.post(`${API_URL}/tasks`, task); fetchTasks(); }
-    catch (err) { console.error('Failed to create task:', err); }
+    try {
+      await axios.post(`${API_URL}/tasks`, task);
+      fetchTasks();
+    } catch (err) {
+      // Error handled silently
+    }
   };
+
   const toggleTask = async (id, isActive) => {
-    try { await axios.put(`${API_URL}/tasks/${id}`, { is_active: !isActive }); fetchTasks(); }
-    catch (err) { console.error('Failed to update task:', err); }
+    try {
+      await axios.put(`${API_URL}/tasks/${id}`, { is_active: !isActive });
+      fetchTasks();
+    } catch (err) {
+      // Error handled silently
+    }
   };
+
   const deleteTask = async (id) => {
-    try { await axios.delete(`${API_URL}/tasks/${id}`); fetchTasks(); }
-    catch (err) { console.error('Failed to delete task:', err); }
+    try {
+      await axios.delete(`${API_URL}/tasks/${id}`);
+      fetchTasks();
+    } catch (err) {
+      // Error handled silently
+    }
   };
+
   const searchTasks = async (query) => {
-    if (!query.trim()) { fetchTasks(); return; }
-    try { const res = await axios.get(`${API_URL}/search`, { params: { q: query } }); setTasks(res.data); }
-    catch (err) { console.error('Search failed:', err); }
+    if (!query.trim()) {
+      fetchTasks();
+      return;
+    }
+    try {
+      const res = await axios.get(`${API_URL}/search`, { params: { q: query } });
+      setTasks(res.data);
+    } catch (err) {
+      // Error handled silently
+    }
   };
 
   return (

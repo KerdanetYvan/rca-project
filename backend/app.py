@@ -8,7 +8,6 @@ import psycopg2
 import psycopg2.extras
 import redis
 
-
 app = Flask(__name__)
 # 1. On récupère la variable d'environnement (avec "*" par défaut si elle n'existe pas)
 raw_origins = os.environ.get("FRONTEND_URL", "*")
@@ -19,10 +18,13 @@ allowed_origins = [origin.strip() for origin in raw_origins.split(",")]
 # 3. On applique les règles CORS de manière sécurisé
 CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://taskuser:taskpass@database:5432/taskdb")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", "postgres://taskuser:taskpass@database:5432/taskdb"
+)
 REDIS_URL = os.environ["REDIS_URL"]
 
 search_history = []
+
 
 def get_db():
     if "db" not in g:
@@ -30,10 +32,12 @@ def get_db():
         g.db.autocommit = True
     return g.db
 
+
 def get_redis():
     if "redis" not in g:
         g.redis = redis.from_url(REDIS_URL)
     return g.redis
+
 
 @app.teardown_appcontext
 def close_db(exception):
@@ -41,32 +45,37 @@ def close_db(exception):
     if db is not None:
         db.close()
 
+
 @app.before_request
 def log_request():
     try:
         g.start_time = datetime.now()
         app.logger.info(f"{request.method} {request.path}")
-    except:
+    except Exception:
         pass
+
 
 @app.after_request
 def after_request(response):
     try:
         duration = datetime.now() - g.start_time
-        app.logger.info(f"{request.method} {request.path} -> {response.status_code} ({duration.total_seconds():.3f}s)")
-    except:
+        app.logger.info(
+            f"{request.method} {request.path} -> {response.status_code} ({duration.total_seconds():.3f}s)"
+        )
+    except Exception:
         pass
     return response
 
+
 @app.route("/health")
 def health():
-    # on vérifie si la connexion avec la db et redis est bonne 
+    # on vérifie si la connexion avec la db et redis est bonne
     # État par défaut
     health_status = {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "database": "ok",
-        "redis": "ok"
+        "redis": "ok",
     }
     http_code = 200
 
@@ -95,6 +104,7 @@ def health():
     return jsonify(health_status), http_code
     # return jsonify({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
 
+
 @app.route("/api/tasks", methods=["GET"])
 def list_tasks():
     db = get_db()
@@ -102,18 +112,22 @@ def list_tasks():
     status = request.args.get("status")
     today_only = request.args.get("today")
     tz_param = request.args.get("tz", "UTC")  # Récupère la timezone demandée
-    
+
     query = "SELECT * FROM tasks"
     conditions = []
     params = []
     if status:
-        conditions.append("is_active = true" if status == "active" else "is_active = false")
+        conditions.append(
+            "is_active = true" if status == "active" else "is_active = false"
+        )
     if today_only:
         # Calcule "aujourd'hui" dans la timezone demandée
         try:
             user_tz = ZoneInfo(tz_param)
             now_in_tz = datetime.now(user_tz)
-            conditions.append("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) = %s")
+            conditions.append(
+                "DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) = %s"
+            )
             params.extend([tz_param, now_in_tz.date()])
         except Exception:
             # Fallback si timezone invalide
@@ -125,13 +139,18 @@ def list_tasks():
     tasks = cur.fetchall()
     result = []
     for t in tasks:
-        result.append({
-            "id": t["id"], "title": t["title"], "description": t["description"],
-            "is_active": t["is_active"],
-            "created_at": t["created_at"].isoformat() if t["created_at"] else None,
-            "updated_at": t["updated_at"].isoformat() if t["updated_at"] else None,
-        })
+        result.append(
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "description": t["description"],
+                "is_active": t["is_active"],
+                "created_at": t["created_at"].isoformat() if t["created_at"] else None,
+                "updated_at": t["updated_at"].isoformat() if t["updated_at"] else None,
+            }
+        )
     return jsonify(result)
+
 
 @app.route("/api/tasks", methods=["POST"])
 def create_task():
@@ -139,44 +158,64 @@ def create_task():
     if not data or not data.get("title"):
         app.logger.warning("Attempt to create task without title")
         return jsonify({"error": "Title is required"}), 400
-    
+
     title = data["title"]
     r = get_redis()
     lock_key = f"task_lock:{title}"
-    
+
     # 🔒 Première barrière : Redis Lock (empêche les requêtes simultanées)
     if not r.setnx(lock_key, "locked"):
         # Une autre requête est en train de créer cette tâche
-        app.logger.warning(f"Duplicate task creation attempt blocked by Redis lock: {title}")
-        return jsonify({"error": "A task with this title is already being created"}), 409
-    
+        app.logger.warning(
+            f"Duplicate task creation attempt blocked by Redis lock: {title}"
+        )
+        return (
+            jsonify({"error": "A task with this title is already being created"}),
+            409,
+        )
+
     try:
         r.expire(lock_key, 5)  # Lock expire après 5 secondes (évite deadlock)
-        
+
         db = get_db()
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
+
         try:
             # 🛡️ Deuxième barrière : DB UNIQUE constraint (garantie finale)
             cur.execute(
                 "INSERT INTO tasks (title, description, is_active, created_at, updated_at) VALUES (%s, %s, %s, %s, %s) RETURNING *",
-                (title, data.get("description", ""), True, datetime.now(timezone.utc), datetime.now(timezone.utc))
+                (
+                    title,
+                    data.get("description", ""),
+                    True,
+                    datetime.now(timezone.utc),
+                    datetime.now(timezone.utc),
+                ),
             )
             task = cur.fetchone()
         except psycopg2.IntegrityError:
             # La contrainte UNIQUE a bloqué le doublon
             app.logger.warning(f"Duplicate task blocked by DB constraint: {title}")
             return jsonify({"error": "A task with this title already exists"}), 409
-        
+
         r.delete("stats")
-        return jsonify({
-            "id": task["id"], "title": task["title"], "description": task["description"],
-            "is_active": task["is_active"], "created_at": task["created_at"].isoformat(),
-            "updated_at": task["updated_at"].isoformat(),
-        }), 201
+        return (
+            jsonify(
+                {
+                    "id": task["id"],
+                    "title": task["title"],
+                    "description": task["description"],
+                    "is_active": task["is_active"],
+                    "created_at": task["created_at"].isoformat(),
+                    "updated_at": task["updated_at"].isoformat(),
+                }
+            ),
+            201,
+        )
     finally:
         # Libère le verrou Redis
         r.delete(lock_key)
+
 
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
@@ -193,16 +232,22 @@ def update_task(task_id):
     is_active = data.get("is_active", task["is_active"])
     cur.execute(
         "UPDATE tasks SET title = %s, description = %s, is_active = %s, updated_at = %s WHERE id = %s RETURNING *",
-        (title, description, is_active, datetime.now(timezone.utc), task_id)
+        (title, description, is_active, datetime.now(timezone.utc), task_id),
     )
     updated = cur.fetchone()
     r = get_redis()
     r.delete("stats")
-    return jsonify({
-        "id": updated["id"], "title": updated["title"], "description": updated["description"],
-        "is_active": updated["is_active"], "created_at": updated["created_at"].isoformat(),
-        "updated_at": updated["updated_at"].isoformat(),
-    })
+    return jsonify(
+        {
+            "id": updated["id"],
+            "title": updated["title"],
+            "description": updated["description"],
+            "is_active": updated["is_active"],
+            "created_at": updated["created_at"].isoformat(),
+            "updated_at": updated["updated_at"].isoformat(),
+        }
+    )
+
 
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(task_id):
@@ -216,25 +261,40 @@ def delete_task(task_id):
     r.delete("stats")
     return "", 204
 
+
 @app.route("/api/search", methods=["GET"])
 def search_tasks():
     q = request.args.get("q", "")
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM tasks WHERE title ILIKE %s OR description ILIKE %s", (f"%{q}%", f"%{q}%"))
+    cur.execute(
+        "SELECT * FROM tasks WHERE title ILIKE %s OR description ILIKE %s",
+        (f"%{q}%", f"%{q}%"),
+    )
     results = cur.fetchall()
-    search_history.append({"query": q, "results_count": len(results), "timestamp": datetime.now().isoformat()})
-    # on ne garde que les 100 dernières recherches en mémoire 
+    search_history.append(
+        {
+            "query": q,
+            "results_count": len(results),
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
+    # on ne garde que les 100 dernières recherches en mémoire
     if len(search_history) > 100:
         search_history.pop(0)
     serialized = []
     for t in results:
-        serialized.append({
-            "id": t["id"], "title": t["title"], "description": t["description"],
-            "is_active": t["is_active"],
-            "created_at": t["created_at"].isoformat() if t["created_at"] else None,
-        })
+        serialized.append(
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "description": t["description"],
+                "is_active": t["is_active"],
+                "created_at": t["created_at"].isoformat() if t["created_at"] else None,
+            }
+        )
     return jsonify(serialized)
+
 
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
@@ -242,14 +302,19 @@ def get_stats():
     cached = r.get("stats")
     if cached:
         import json
+
         return jsonify(json.loads(cached))
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active, COUNT(*) FILTER (WHERE is_active = false) as done FROM tasks")
+    cur.execute(
+        "SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active, COUNT(*) FILTER (WHERE is_active = false) as done FROM tasks"
+    )
     stats = cur.fetchone()
     import json
+
     r.setex("stats", 1, json.dumps(dict(stats)))
     return jsonify(dict(stats))
+
 
 # def warmup_cache():
 #     try:
@@ -262,21 +327,23 @@ def get_stats():
 
 # warmup_cache()
 
+
 @app.errorhandler(500)
 def handle_500(e):
     app.logger.error(f"Internal server error: {e}")
     return jsonify({"error": "Internal server error"}), 500
+
 
 @app.errorhandler(404)
 def handle_404(e):
     app.logger.warning(f"Not found: {request.path}")
     return jsonify({"error": "Not found"}), 404
 
+
 @app.errorhandler(400)
 def handle_400(e):
     app.logger.warning(f"Bad request: {request.path} - {e}")
     return jsonify({"error": "Bad request"}), 400
-
 
 
 if __name__ == "__main__":
